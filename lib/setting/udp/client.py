@@ -1,5 +1,4 @@
 import json
-import time
 from .inetsetting import InetSetting
 import threading
 class Client(InetSetting):
@@ -34,7 +33,8 @@ class Client(InetSetting):
 
               else:
                   self.close()
-
+          except TimeoutError :
+              self.close()
           except KeyboardInterrupt :
               self.close()
 

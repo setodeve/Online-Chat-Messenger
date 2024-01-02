@@ -6,8 +6,8 @@ from .inetsetting import InetSetting
 class Server(InetSetting):
     def __init__(self) -> None:
         super().__init__('0.0.0.0',9001)
-        threading.Thread(target=self.receive_messages()).start()
         self.clients = {}
+        threading.Thread(target=self.receive_messages()).start()
 
     def receive_messages(self)-> None:
         self.sock.bind(self.setinfo)

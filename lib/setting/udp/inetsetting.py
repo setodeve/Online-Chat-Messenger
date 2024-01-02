@@ -10,7 +10,8 @@ class InetSetting:
         self.setinfo = (address, port)
         self.sock = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
         print('create socket')
-        self.size = 1024
+        self.sock.settimeout(60)
+        self.size = 4096
 
     def close(self):
         print('closing socket')
