@@ -1,7 +1,7 @@
 import time
 import json
 import threading
-from .inetsetting import InetSetting
+from ..initsetting import InetSetting
 
 class Server(InetSetting):
     def __init__(self) -> None:

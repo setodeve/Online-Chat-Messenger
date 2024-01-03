@@ -1,5 +1,5 @@
 import json
-from .inetsetting import InetSetting
+from ..initsetting import InetSetting
 import threading
 class Client(InetSetting):
     def __init__(self) -> None:
