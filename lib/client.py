@@ -14,37 +14,41 @@ class Client_TCP(InetSetting):
     def client_tcp_start(self) -> None:
         flag = False
         while True:
-            data = {}
-            tmp = self.room_input()
-            data["operation"] = tmp["operation"]
-            data["payload"] = {}
-            data["payload"]["room_name"] = tmp["room_name"]
-            data["payload"]["user_name"] = self.name
+            try:
+                data = {}
+                tmp = self.room_input()
+                data["operation"] = tmp["operation"]
+                data["payload"] = {}
+                data["payload"]["room_name"] = tmp["room_name"]
+                data["payload"]["user_name"] = self.user_name
 
-            json_data = json.dumps(data).encode("utf-8")
-            self.sock.sendto(json_data, self.setinfo)
+                json_data = json.dumps(data).encode("utf-8")
+                self.sock.sendto(json_data, self.setinfo)
 
-            message_recv = self.sock.recv(self.size).decode("utf-8")
-            message = json.loads(message_recv)
+                message_recv = self.sock.recv(self.size).decode("utf-8")
+                message = json.loads(message_recv)
 
-            if message["state"] == self.POSITIVE_STATE:
-                if message["operation"] == self.COMPLETE_OPERATION:
-                    self.token = data["payload"]["token"]
-                    self.room_name = data["payload"]["room_name"]
-                    print(data["payload"]["room_name"] + "に参加しました。")
+                if message["state"] == self.POSITIVE_STATE:
+                    if message["operation"] == self.COMPLETE_OPERATION:
+                        self.token = message["payload"]["token"]
+                        self.room_name = message["payload"]["room_name"]
+                        print(message["payload"]["room_name"] + "に参加しました。")
+                        flag = True
+                    else:
+                        print("サポート外のケースです")
+                        print(message)
                 else:
-                    print("サポート外のケースです")
-                    print(message)
-                flag = True
-            else:
-                print(message["payload"]["error_message"])
-            if flag:
-                break
-        try:
-            self.sock.shutdown(socket.SHUT_RDWR)
-            self.sock.close()
-        except:
-            pass
+                    print("")
+                    print("[ERROR] "+message["payload"]["error_message"])
+                    print("")
+                    if message["payload"]["error_code"] == self.ERROR_CODE["USER_NAME_EXIST"]:
+                        self.user_name = input("ユーザー名を入力してください : ")
+                if flag: 
+                    break
+            except Exception as err:
+                print('[TCP] Error: ' + str(err))
+        print('[TCP] Connection Close')
+        self.sock.close()
 
     def room_input(self) -> object:
         print("1または2を入力してください")
@@ -54,10 +58,10 @@ class Client_TCP(InetSetting):
             num = int(input())
             if num == 1:
                 room_name = input("新規ルーム名を入力してください : ")
-                return {"operation": 0, "room_name": room_name}
+                return {"operation": self.NEW_ROOM_REQUEST_OPERATION, "room_name": room_name}
             elif num == 2:
                 room_name = input("既存ルーム名を入力してください : ")
-                return {"operation": 2, "room_name": room_name}
+                return {"operation": self.EXIST_ROOM_REQUEST_OPERATION, "room_name": room_name}
             else:
                 print("1または2を入力してください")
 
@@ -65,33 +69,31 @@ class Client_UDP(InetSetting):
     def __init__(self,user_name, room_name, token) -> None:
         super().__init__("0.0.0.0", 9001, socket.SOCK_DGRAM)
         self.user_name = user_name
-        self.token = room_name
-        self.room_name = token
-        threading.Thread(target=self.receive_messages).start()
+        self.token = token
+        self.room_name = room_name
         threading.Thread(target=self.send_messages).start()
-
-        # サーバー側への疎通確認
-        data = {"user_name": self.user_name, "message": self.user_name + "-" + "reg"}
-        json_data = json.dumps(data).encode("utf-8")
-        self.sock.sendto(json_data, self.setinfo)
+        threading.Thread(target=self.receive_messages).start()
 
     def receive_messages(self) -> None:
         while True:
             rx_meesage, addr = self.sock.recvfrom(self.size)
-            print(f"{rx_meesage.decode('utf-8')}")
+            rx_meesage = json.loads(rx_meesage.decode("utf-8"))
+            print(rx_meesage["user_name"] + " : " + rx_meesage["message"])
 
     def send_messages(self) -> None:
         print("メッセージを入力してください。終了するためにはendと入力してください。")
+
         while True:
             try:
-                data = {"user_name": self.user_name, "message": input()}
+                data = {"user_name": self.user_name,"room_name": self.room_name, "message": input()}
                 if data["message"] != "end":
                     json_data = json.dumps(data).encode("utf-8")
                     send_len = self.sock.sendto(json_data, self.setinfo)
                     print(data["user_name"] + " : " + data["message"])
                 else:
-                    self.close()
-            except TimeoutError:
-                self.close()
-            except KeyboardInterrupt:
-                self.close()
+                    self.sock.close()
+            except Exception as err:
+                print('[UDP] Error: ' + str(err))
+                break
+        print('[UDP] Connection Close')
+        self.sock.close()
