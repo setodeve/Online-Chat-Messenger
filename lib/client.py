@@ -100,14 +100,14 @@ class Client_UDP(InetSetting):
             print(rx_meesage["user_name"] + " : " + rx_meesage["message"])
 
     def send_messages(self) -> None:
+        print("メッセージを入力してください。終了するためにはendと入力してください。")
         while True:
             try:
-                print("メッセージを入力してください。終了するためにはendと入力してください。")
-                data = {"user_name": self.user_name,"room_name": self.room_name, "message": input("> ")}
+                data = {"user_name": self.user_name,"room_name": self.room_name, "message": input("")}
                 if data["message"] != "end":
                     json_data = json.dumps(data).encode("utf-8")
                     send_len = self.sock.sendto(json_data, self.setinfo)
-                    print(data["user_name"] + " : " + data["message"])
+                    # print(data["user_name"] + " : " + data["message"])
                 else:
                     self.sock.close()
             except Exception as err:
