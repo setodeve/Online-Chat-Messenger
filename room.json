@@ -2,11 +2,25 @@
     {
         "room_name": "test",
         "host": "test",
-        "member": []
+        "member": {
+            "kei": [
+                "127.0.0.1",
+                65256
+            ]
+        }
     },
     {
-        "room_name": "dszdasdas",
-        "host": "dadasd",
-        "member": []
+        "room_name": "tanidesu",
+        "host": "tani",
+        "member": {
+            "tani": [
+                "127.0.0.1",
+                64876
+            ],
+            "keidesu": [
+                "127.0.0.1",
+                58647
+            ]
+        }
     }
 ]

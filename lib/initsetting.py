@@ -12,7 +12,7 @@ class InetSetting:
     NEGATIVE_STATE = 2
     UNKNOWN_TOKEN = "UNKNOWN_TOKEN"
     ERROR_CODE = {
-        "USER_NAME_EXIST" : 0,
+        "PASSWORD_UNMATCH" : 0,
         "ROOM_NAME_EXIST" : 1,
         "ROOM_NAME_UNEXIST" : 2,
     }

@@ -1,7 +1,6 @@
 import json
 import socket
 import secrets
-import time
 from .initsetting import InetSetting
 
 class Server_TCP(InetSetting):
@@ -19,27 +18,27 @@ class Server_TCP(InetSetting):
                     print('[TCP]Connection from {}'.format(cli_addr))
                     message_recv = conn.recv(self.size).decode("utf-8")
                     message = json.loads(message_recv)
+                    
                     message_resp = {
                         "operation": self.RESPONSE_OPERATION,
                         "state": self.POSITIVE_STATE,
                         "payload": {
                             "user_name": message["payload"]["user_name"],
-                            "room_name": message["payload"]["room_name"],
+                            "room_name": message["payload"]["room_name"]
                         },
                     }
                     # ユーザー名が使用できるかチェック
-                    user_name_state = self.user_name_check(message["payload"]["user_name"])
-                    if user_name_state == self.POSITIVE_STATE:
+                    user_name_state = self.user_name_check(message["payload"]["user_name"],message["payload"]["password"])
+                    if user_name_state == self.NEGATIVE_STATE:
                         message_resp["state"] = self.NEGATIVE_STATE
                         message_resp["payload"][
                             "error_message"
-                        ] = "入力されたユーザーは使用できません。"
+                        ] = "パスワードが一致しません。"
                         message_resp["payload"][
                             "error_code"
-                        ] = self.ERROR_CODE["USER_NAME_EXIST"]
+                        ] = self.ERROR_CODE["PASSWORD_UNMATCH"]
                         self.respond(message_resp,conn)
                         continue
-                    self.user_add(message)
                     # ルーム名が使用できるかチェック
                     room_name_state = self.room_name_check(message["payload"]["room_name"])
                     if ((message["operation"] == 1) and (room_name_state==self.NEGATIVE_STATE) or
@@ -74,6 +73,7 @@ class Server_TCP(InetSetting):
                         continue
             except Exception as err:
                 print('[TCP] Error: ' + str(err))
+                break
             finally:
                 print('[TCP] Connection Close')
                 conn.close()
@@ -93,25 +93,39 @@ class Server_TCP(InetSetting):
     def member_add(self,message,cli_addr):
         user_name = message["payload"]["user_name"]
         room_name = message["payload"]["room_name"]
+        flg = False
         with open("room.json", "r") as file:
             data = json.load(file)
-            for i in range(len(data)):
-                if data[i]["room_name"] == room_name:
-                    if user_name not in data[i]["member"]:
-                        data[i]["member"].append(user_name)
-                        break
+        for i in range(len(data)):
+            if data[i]["room_name"] == room_name:
+                data[i]["member"][user_name] = cli_addr
+                flg = True
+                break
+        if flg==False:
+            tmp = {
+                "room_name": room_name,
+                "host": user_name,
+                "member": {} 
+            }
+            tmp["member"][user_name] = cli_addr
+            data.append(tmp)
 
         with open("room.json", "w") as file:
             json.dump(data, file, indent=4)
 
-    def user_name_check(self, user_name):
+    def user_name_check(self, user_name, password):
         state = self.NEGATIVE_STATE
         with open("user.json", "r") as file:
             users = json.load(file)
-        for u in users:
-            if u == user_name:
-                state = self.POSITIVE_STATE
-                break
+
+        if (user_name not in users) :
+            users[user_name] = password
+            state = self.POSITIVE_STATE
+        elif (user_name in users) and users[user_name]==password:
+            state = self.POSITIVE_STATE
+
+        with open("user.json", "w") as file:
+            json.dump(users, file, indent=4)
         return state
 
     def room_name_check(self, room_name):
@@ -148,8 +162,6 @@ class Server_TCP(InetSetting):
 
         if file_name == "token.json":
             data.append({"room_name": room_name, "token": token})
-        elif file_name == "room.json":
-            data.append({"room_name": room_name, "host": user_name})
         else:
             if user_name not in data: data.append(user_name)
 
@@ -168,22 +180,9 @@ class Server_TCP(InetSetting):
             token,
             "token.json",
         )
-        self.json_rewite(
-            message["payload"]["room_name"],
-            message["payload"]["user_name"],
-            token,
-            "room.json",
-        )
 
         return token
-    
-    def user_add(self,message):
-        self.json_rewite(
-            "",
-            message["payload"]["user_name"],
-            "",
-            "user.json",
-        )
+
 class Server_UDP(InetSetting):
     def __init__(self) -> None:
         super().__init__("0.0.0.0", 9001, socket.SOCK_DGRAM)
@@ -200,28 +199,52 @@ class Server_UDP(InetSetting):
         try:
             while True:
                 message, cli_addr = self.sock.recvfrom(self.size)
-                self.client = cli_addr
-                if cli_addr not in self.clients:
-                    self.clients[cli_addr] = time.time()
-
                 message = json.loads(message.decode("utf-8"))
                 self.user_name = message["user_name"]
                 self.room_name = message["room_name"]
-                print(message)
                 self.set_room_info()
+                self.clients = self.udp_address_add(message,cli_addr)
+                if message["message"] == self.user_name+"registration-user-name":
+                    continue
                 self.relay_message(message,cli_addr)
         except Exception as err:
             print('[UDP] Error: ' + str(err))
         finally:
             print('[UDP] Connection Close')
             self.sock.close()
-                
+            self.udp_address_init()   
 
     def relay_message(self, message, sender):
         json_data = json.dumps(message).encode("utf-8")
-        for client in self.clients.keys():
+        for client in self.clients:
             if client != sender:
-                self.sock.sendto(json_data, client)
+                self.sock.sendto(json_data, tuple(client))
+
+    def udp_address_add(self,message,cli_addr):
+        user_name = message["user_name"]
+        room_name = message["room_name"]
+        rtn = {}
+        with open("room.json", "r") as file:
+            data = json.load(file)
+            for i in range(len(data)):
+                if data[i]["room_name"] == room_name:
+                    data[i]["member"][user_name] = cli_addr
+                    rtn = list(data[i]["member"].values())
+                    break
+
+        with open("room.json", "w") as file:
+            json.dump(data, file, indent=4)
+        return rtn
+
+    def udp_address_init(self):
+        with open("room.json", "r") as file:
+            data = json.load(file)
+            for i in range(len(data)):
+                if "member" in data[i].keys():
+                    data[i]["member"] = {}
+        
+        with open("room.json", "w") as file:
+            json.dump(data, file, indent=4)
 
     def set_room_info(self):
         with open("room.json", "r") as file:
