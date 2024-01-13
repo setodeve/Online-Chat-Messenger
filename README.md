@@ -31,4 +31,4 @@
 2. ユーザー名とパスワードを入力して認証を行い、チャットルームを作成または参加し、メッセージの送受信を行います。
 
 ## 使用例
-![demo](demo.gif)
+![demo](https://github.com/setodeve/Online-Chat-Messenger/assets/83833293/627e44f9-b6d5-4492-a15a-09e5d846d5c4)
